@@ -3,7 +3,7 @@ import { useWeb3 } from '../context/Web3Context';
 import { initiateTransfer, acceptTransfer, getPendingTransfers } from '../utils/contract';
 import { ethers } from 'ethers';
 import toast from 'react-hot-toast';
-import EventCoreABI from '../abis/contracts/EventCore.sol/EventCore.json';
+import EventCoreABI from '../abis/EventCore.sol/EventCore.json';
 
 const TransferTicketForm = ({ eventId, onSuccess }) => {
   const { contracts, account } = useWeb3();

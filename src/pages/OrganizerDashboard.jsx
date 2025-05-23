@@ -3,7 +3,7 @@ import { useWeb3 } from '../context/Web3Context';
 import { createEvent } from '../utils/contract';
 import toast from 'react-hot-toast';
 import { ethers } from 'ethers';
-import EventCoreAbi from '../abis/contracts/EventCore.sol/EventCore.json';
+import EventCoreAbi from '../abis/EventCore.sol/EventCore.json';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorBoundary from '../components/ErrorBoundary';
 

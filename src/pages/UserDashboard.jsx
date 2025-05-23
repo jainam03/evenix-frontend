@@ -14,7 +14,7 @@ import BuyTicketForm from '../components/BuyTicketForm';
 import TransferTicketForm from '../components/TransferTicketForm';
 import { useNavigate } from 'react-router-dom';
 import { ethers } from 'ethers';
-import EventCoreABI from '../../../event-dapp-backend/artifacts/contracts/EventCore.sol/EventCore.json';
+import EventCoreABI from '../abis/EventCore.sol/EventCore.json';
 
 const UserDashboard = () => {
     const navigate = useNavigate();

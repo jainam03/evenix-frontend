@@ -1,11 +1,11 @@
 import { ethers } from 'ethers';
 
 // Import contract ABIs
-import EventCoreABI from '../../../event-dapp-backend/artifacts/contracts/EventCore.sol/EventCore.json';
-import EventFactoryABI from '../../../event-dapp-backend/artifacts/contracts/EventFactory.sol/EventFactory.json';
-import EventDiscoveryABI from '../../../event-dapp-backend/artifacts/contracts/EventDiscovery.sol/EventDiscovery.json';
-import TicketManagerABI from '../../../event-dapp-backend/artifacts/contracts/TicketManager.sol/TicketManager.json';
-import UserTicketHubABI from '../../../event-dapp-backend/artifacts/contracts/UserTicketHub.sol/UserTicketHub.json';
+import EventCoreABI from '../abis/EventCore.sol/EventCore.json';
+import EventFactoryABI from '../abis/EventFactory.sol/EventFactory.json';
+import EventDiscoveryABI from '../abis/EventDiscovery.sol/EventDiscovery.json';
+import TicketManagerABI from '../abis/TicketManager.sol/TicketManager.json';
+import UserTicketHubABI from '../abis/UserTicketHub.sol/UserTicketHub.json';
 
 // Import contract addresses
 import { CONTRACT_ADDRESSES } from './contractAddresses';
@@ -19,39 +19,64 @@ export const getContracts = async (signer) => {
   console.log('getContracts called with signer:', signer);
 
   try {
+    // Log network information
+    const network = await signer.provider.getNetwork();
+    console.log('Connected to network:', {
+      chainId: network.chainId,
+      name: network.name
+    });
+
     console.log('Using contract addresses:', CONTRACT_ADDRESSES);
-    console.log('EventFactoryABI type:', typeof EventFactoryABI);
-    console.log('EventFactoryABI.abi type:', typeof EventFactoryABI.abi);
+    
+    // Verify ABIs
+    if (!EventFactoryABI?.abi) {
+      throw new Error('EventFactory ABI is missing or invalid');
+    }
+    if (!EventDiscoveryABI?.abi) {
+      throw new Error('EventDiscovery ABI is missing or invalid');
+    }
+    if (!UserTicketHubABI?.abi) {
+      throw new Error('UserTicketHub ABI is missing or invalid');
+    }
 
     const eventFactoryAddress = CONTRACT_ADDRESSES.eventFactory;
     if (!eventFactoryAddress) {
-      console.error('EventFactory address is undefined in CONTRACT_ADDRESSES');
-      return null;
+      throw new Error('EventFactory address is undefined in CONTRACT_ADDRESSES');
     }
-    console.log('EventFactory Address from CONTRACT_ADDRESSES:', eventFactoryAddress);
+    console.log('EventFactory Address:', eventFactoryAddress);
 
+    // Create contract instances with error checking
     const eventFactory = new ethers.Contract(eventFactoryAddress, EventFactoryABI.abi, signer);
-    console.log('Initialized eventFactory instance:', eventFactory);
-    console.log('eventFactory.target (ethers v6 address property):', eventFactory.target);
-    if (typeof eventFactory.getAddress === 'function') {
-        console.log('eventFactory.getAddress() result:', await eventFactory.getAddress());
-    } else {
-        console.log('eventFactory.getAddress is not a function');
+    if (!eventFactory.target) {
+      throw new Error('EventFactory contract initialization failed');
+    }
+
+    const eventDiscovery = new ethers.Contract(CONTRACT_ADDRESSES.eventDiscovery, EventDiscoveryABI.abi, signer);
+    if (!eventDiscovery.target) {
+      throw new Error('EventDiscovery contract initialization failed');
+    }
+
+    const userTicketHub = new ethers.Contract(CONTRACT_ADDRESSES.userTicketHub, UserTicketHubABI.abi, signer);
+    if (!userTicketHub.target) {
+      throw new Error('UserTicketHub contract initialization failed');
     }
 
     const contracts = {
-      eventFactory: eventFactory, // Use the already initialized and logged one
-      eventDiscovery: new ethers.Contract(CONTRACT_ADDRESSES.eventDiscovery, EventDiscoveryABI.abi, signer),
-      userTicketHub: new ethers.Contract(CONTRACT_ADDRESSES.userTicketHub, UserTicketHubABI.abi, signer)
+      eventFactory,
+      eventDiscovery,
+      userTicketHub,
+      signer
     };
 
-    // Add signer to contracts for easy access
-    contracts.signer = signer;
+    // Verify contract functions exist
+    if (typeof eventFactory.nextEventId !== 'function') {
+      throw new Error('nextEventId function not found in EventFactory contract');
+    }
 
-    console.log('Final contract objects (checking .target for address):', {
-      eventFactoryTarget: contracts.eventFactory?.target,
-      eventDiscoveryTarget: contracts.eventDiscovery?.target,
-      userTicketHubTarget: contracts.userTicketHub?.target
+    console.log('Contract instances created successfully:', {
+      eventFactoryAddress: contracts.eventFactory.target,
+      eventDiscoveryAddress: contracts.eventDiscovery.target,
+      userTicketHubAddress: contracts.userTicketHub.target
     });
 
     return contracts;
@@ -60,7 +85,7 @@ export const getContracts = async (signer) => {
     console.error('Error name:', error.name);
     console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
-    return null;
+    throw error; // Rethrow to handle in component
   }
 };
 
@@ -213,46 +238,65 @@ export const getUserTickets = async (contracts, userAddress) => {
     const tickets = [];
     
     // Get the total number of event IDs created so far
-    // Assuming nextEventId gives the count of created event IDs (0 to nextEventId-1)
-    const nextEventId = await contracts.eventFactory.nextEventId();
-    const eventCount = Number(nextEventId); // Convert BigInt to Number for loop
-    console.log(`Total event IDs to check (nextEventId): ${eventCount}`);
+    let eventCount;
+    try {
+      const nextEventId = await contracts.eventFactory.nextEventId();
+      console.log('Raw nextEventId value:', nextEventId);
+      // Convert BigInt to Number safely
+      eventCount = nextEventId ? Number(nextEventId) : 0;
+    } catch (error) {
+      console.error('Error fetching nextEventId:', error);
+      // Fallback to getting events from EventDiscovery
+      const allEvents = await contracts.eventDiscovery.getAllEvents();
+      eventCount = allEvents.length;
+    }
+    
+    console.log(`Total event IDs to check: ${eventCount}`);
+
+    // If we have no events, return early
+    if (eventCount === 0) {
+      return [];
+    }
 
     for (let i = 0; i < eventCount; i++) {
-      const eventId = i; // Event IDs are 0, 1, 2, ...
+      const eventId = i;
       console.log("Checking tickets for user:", userAddress, "event:", eventId);
       let userTicketCountForEvent = 0;
+      
       try {
         userTicketCountForEvent = await contracts.userTicketHub.getUserTicketCount(userAddress, eventId);
-        userTicketCountForEvent = Number(userTicketCountForEvent); // Convert BigInt if necessary
+        userTicketCountForEvent = Number(userTicketCountForEvent);
         console.log("User has", userTicketCountForEvent, "tickets for event", eventId);
       } catch (e) {
         console.warn(`Could not get ticket count for user ${userAddress}, event ${eventId}: ${e.message}`);
-        continue; // Skip to next event if this fails
+        continue;
       }
 
       if (userTicketCountForEvent > 0) {
-        console.log(`User ${userAddress} has ${userTicketCountForEvent} tickets for event ${eventId}`);
-        const eventContractAddress = await contracts.eventFactory.getEventContract(eventId);
-        if (!eventContractAddress || eventContractAddress === ethers.ZeroAddress) {
-          console.warn(`Event contract address for event ID ${eventId} is invalid.`);
-          continue;
-        }
+        try {
+          const eventContractAddress = await contracts.eventFactory.getEventContract(eventId);
+          if (!eventContractAddress || eventContractAddress === ethers.ZeroAddress) {
+            console.warn(`Event contract address for event ID ${eventId} is invalid.`);
+            continue;
+          }
 
-        const eventCore = new ethers.Contract(eventContractAddress, EventCoreABI.abi, contracts.signer);
-        const eventDetails = await eventCore.getEventDetails(); // This is from EventCore
-        
-        // Create a ticket object for each ticket owned
-        for (let j = 0; j < userTicketCountForEvent; j++) {
-          tickets.push(formatTicket({
-            id: `${eventId}-${j}`,
-            eventId: eventId.toString(),
-            owner: userAddress,
-            purchaseDate: Math.floor(Date.now() / 1000), 
-            isUsed: false, 
-            transferable: true, 
-            price: eventDetails._price // Price from the event details
-          }));
+          const eventCore = new ethers.Contract(eventContractAddress, EventCoreABI.abi, contracts.signer);
+          const eventDetails = await eventCore.getEventDetails();
+          
+          for (let j = 0; j < userTicketCountForEvent; j++) {
+            tickets.push(formatTicket({
+              id: `${eventId}-${j}`,
+              eventId: eventId.toString(),
+              owner: userAddress,
+              purchaseDate: Math.floor(Date.now() / 1000),
+              isUsed: false,
+              transferable: true,
+              price: eventDetails._price
+            }));
+          }
+        } catch (error) {
+          console.warn(`Error processing event ${eventId}:`, error);
+          continue;
         }
       }
     }
@@ -261,7 +305,7 @@ export const getUserTickets = async (contracts, userAddress) => {
     return tickets;
   } catch (error) {
     console.error('Error in getUserTickets:', error);
-    if (error.message.includes('user not registered') || error.message.includes('invalid user')) { 
+    if (error.message.includes('user not registered') || error.message.includes('invalid user')) {
       return [];
     }
     throw error;
@@ -413,4 +457,4 @@ export const getPendingTransfers = async (contracts, userAddress) => {
     console.error('Error getting pending transfers:', error);
     throw new Error('Failed to get pending transfers');
   }
-}; 
+};

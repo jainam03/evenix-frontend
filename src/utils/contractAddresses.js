@@ -1,8 +1,8 @@
-// Auto-generated on 2025-05-22T13:12:40.635Z
-// Network: localhost
+// Auto-generated
+// Network: sepolia
 
 export const CONTRACT_ADDRESSES = {
-  "eventFactory": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-  "eventDiscovery": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-  "userTicketHub": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"
+  "eventFactory": "0x73b65B7f35C8539b6D8a3A5b722a0C640F642234",
+  "eventDiscovery": "0x2385143931121e9De20d6f6cE91242fA15a336c8",
+  "userTicketHub": "0xF1ea9F2771c3B1D1C2Cba963c88A03bea0CB32ed"
 };
