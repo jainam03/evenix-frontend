@@ -17,8 +17,8 @@ const LandingPage = () => {
         
         <div className="relative w-full px-6 z-10 rounded-2xl">
           <div className="max-w-3xl mx-auto text-center rounded-2xl">
-            <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 leading-tight">
-              Evenix - The Decentralized Event Management
+            <h1 className="text-5xl md:text-5xl font-bold text-white mb-6 leading-tight">
+              Evenix - The Decentralized Event Management Platform
             </h1>
             <p className="text-xl text-white/90 mb-10 max-w-2xl mx-auto">
               Create, manage, and attend events with blockchain-powered ticketing. Secure, transparent, and hassle-free.
@@ -180,7 +180,7 @@ const LandingPage = () => {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-10 pt-8 text-center text-gray-400 rounded-2xl">
-            <p>&copy; {new Date().getFullYear()} Event DApp. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} Evenix. All rights reserved.</p>
           </div>
         </div>
       </footer>

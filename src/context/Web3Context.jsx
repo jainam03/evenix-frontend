@@ -13,6 +13,20 @@ export const useWeb3 = () => {
   return context;
 };
 
+const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+const getMobileProvider = () => {
+  if (window.ethereum) {
+    return window.ethereum;
+  }
+  
+  if (window.web3?.currentProvider) {
+    return window.web3.currentProvider;
+  }
+
+  return null;
+};
+
 export const Web3Provider = ({ children }) => {
   const [account, setAccount] = useState(null);
   const [provider, setProvider] = useState(null);
@@ -22,14 +36,34 @@ export const Web3Provider = ({ children }) => {
   const [network, setNetwork] = useState(null);
 
   const connectWallet = async () => {
-    if (!window.ethereum) {
-      toast.error('Please install MetaMask to use this dApp');
-      return;
+    const mobile = isMobile();
+    const ethereumProvider = mobile ? getMobileProvider() : window.ethereum;
+
+    if (!ethereumProvider) {
+      if (mobile) {
+        // For mobile users, provide deep link to MetaMask
+        const dappUrl = window.location.href;
+        const metamaskAppDeepLink = `https://metamask.app.link/dapp/${window.location.host}`;
+        
+        toast.error(
+          <div>
+            <p>Please open this dApp in the MetaMask mobile browser.</p>
+            <a href={metamaskAppDeepLink} className="text-blue-500 underline mt-2 block">
+              Open in MetaMask
+            </a>
+          </div>,
+          { duration: 8000 }
+        );
+        return;
+      } else {
+        toast.error('Please install MetaMask to use this dApp');
+        return;
+      }
     }
 
     try {
       setIsConnecting(true);
-      const browserProvider = new ethers.BrowserProvider(window.ethereum);
+      const browserProvider = new ethers.BrowserProvider(ethereumProvider);
       const accounts = await browserProvider.send('eth_requestAccounts', []);
       const currentSigner = await browserProvider.getSigner();
       const currentNetwork = await browserProvider.getNetwork();
